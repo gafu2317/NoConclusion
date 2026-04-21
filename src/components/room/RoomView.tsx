@@ -335,17 +335,44 @@ export function RoomView({ roomCode }: Props) {
                       {displayNum !== null ? displayNum : "—"}
                     </p>
                     {mine ? (
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        value={sliderValue}
-                        onChange={(e) => {
-                          const n = Number(e.target.value);
-                          writeVote(n);
-                        }}
-                        className="w-full max-w-xs accent-sky-500"
-                      />
+                      <div className="flex w-full max-w-xs flex-col items-center gap-3">
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          value={sliderValue}
+                          onChange={(e) => {
+                            const n = Number(e.target.value);
+                            writeVote(n);
+                          }}
+                          className="w-full accent-sky-500"
+                        />
+                        <div className="flex items-center gap-2">
+                          <label
+                            htmlFor={`vote-num-${memberId}`}
+                            className="text-xs text-zinc-500"
+                          >
+                            数値
+                          </label>
+                          <input
+                            id={`vote-num-${memberId}`}
+                            type="number"
+                            inputMode="numeric"
+                            min={0}
+                            max={100}
+                            step={1}
+                            value={sliderValue}
+                            onChange={(e) => {
+                              const t = e.target.value;
+                              if (t === "" || t === "-") return;
+                              const n = parseInt(t, 10);
+                              if (Number.isNaN(n)) return;
+                              writeVote(Math.min(100, Math.max(0, n)));
+                            }}
+                            className="w-20 rounded-lg border border-zinc-600 bg-zinc-900 px-2 py-1.5 text-center font-mono text-sm text-zinc-100 tabular-nums outline-none focus:border-sky-500"
+                          />
+                        </div>
+                      </div>
                     ) : hasVote ? null : (
                       <p className="text-xs text-zinc-600">まだ票がない</p>
                     )}
