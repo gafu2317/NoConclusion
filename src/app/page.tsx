@@ -46,16 +46,16 @@ export default function Home() {
   return (
     <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-10 px-6 py-16">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">
+        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
           NoConclusion
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-500">
+        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
           通話しながら議題ごとの賛否を 0〜100 で揃えて見るだけの部屋。ログインはない。
         </p>
       </div>
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-500">
           新しいルーム
         </h2>
         <button
@@ -69,12 +69,12 @@ export default function Home() {
       </div>
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500">
+        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-500">
           コードで参加
         </h2>
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
-            className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 font-mono text-sm text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-sky-500"
+            className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-sky-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500"
             value={joinInput}
             onChange={(e) => setJoinInput(e.target.value)}
             placeholder="8 文字のコード"
@@ -86,7 +86,7 @@ export default function Home() {
           <button
             type="button"
             onClick={joinRoom}
-            className="rounded-lg border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-100 hover:bg-zinc-900"
+            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
           >
             参加
           </button>
@@ -94,7 +94,7 @@ export default function Home() {
       </div>
 
       {error ? (
-        <p className="rounded-lg border border-rose-900/60 bg-rose-950/40 px-3 py-2 text-sm text-rose-300">
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
           {error}
         </p>
       ) : null}

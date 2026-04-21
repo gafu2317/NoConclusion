@@ -94,7 +94,13 @@ function postVacuum(roomCode: string) {
 export function RoomView({ roomCode }: Props) {
   const router = useRouter();
   const db = useMemo(() => tryGetDb(), []);
-  const memberId = useMemo(() => getOrCreateMemberId(roomCode), [roomCode]);
+  const [memberId, setMemberId] = useState<string | null>(null);
+
+  // localStorage は SSR に無いのでマウント後だけ ID を確定する（useSyncExternalStore だと getServerSnapshot と初回 getSnapshot の一致が難しい）
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional hydration after mount
+    setMemberId(getOrCreateMemberId(roomCode));
+  }, [roomCode]);
 
   const [status, setStatus] = useState<LoadStatus>(db ? "loading" : "error");
   const [room, setRoom] = useState<RoomState | null>(null);
@@ -132,12 +138,14 @@ export function RoomView({ roomCode }: Props) {
     return () => unsub();
   }, [db, roomCode]);
 
-  const isMember = Boolean(room?.members?.[memberId]);
+  const isMember = Boolean(
+    memberId && room?.members && room.members[memberId],
+  );
   const members = room?.members ?? {};
   const voteMap = useMemo(() => room?.votes ?? {}, [room]);
 
   useEffect(() => {
-    if (!db || !isMember) return;
+    if (!db || !isMember || !memberId) return;
     const mRef = ref(db, `rooms/${roomCode}/members/${memberId}`);
     const vRef = ref(db, `rooms/${roomCode}/votes/${memberId}`);
     const odM = onDisconnect(mRef);
@@ -153,7 +161,7 @@ export function RoomView({ roomCode }: Props) {
   }, [db, isMember, roomCode, memberId]);
 
   const joinRoom = useCallback(async () => {
-    if (!db) return;
+    if (!db || !memberId) return;
     const name = joinName.trim();
     if (!name) return;
     setErrorMsg(null);
@@ -194,7 +202,7 @@ export function RoomView({ roomCode }: Props) {
 
   const writeVote = useCallback(
     (value: number) => {
-      if (!db) return;
+      if (!db || !memberId) return;
       if (voteDebounceRef.current) clearTimeout(voteDebounceRef.current);
       voteDebounceRef.current = setTimeout(() => {
         set(ref(db, `rooms/${roomCode}/votes/${memberId}`), value).catch(
@@ -218,7 +226,7 @@ export function RoomView({ roomCode }: Props) {
   }, [roomCode]);
 
   const leaveRoom = useCallback(async () => {
-    if (!db) return;
+    if (!db || !memberId) return;
     setErrorMsg(null);
     const od = onDisconnectHandlesRef.current;
     if (od) {
@@ -243,7 +251,7 @@ export function RoomView({ roomCode }: Props) {
 
   const kickMember = useCallback(
     async (targetId: string) => {
-      if (!db || targetId === memberId) return;
+      if (!db || !memberId || targetId === memberId) return;
       setErrorMsg(null);
       try {
         await remove(ref(db, `rooms/${roomCode}/votes/${targetId}`));
@@ -256,9 +264,17 @@ export function RoomView({ roomCode }: Props) {
     [db, memberId, roomCode],
   );
 
+  if (memberId === null) {
+    return (
+      <div className="flex flex-1 items-center justify-center p-8 text-zinc-600 dark:text-zinc-500">
+        読み込み中…
+      </div>
+    );
+  }
+
   if (status === "loading") {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 text-zinc-500">
+      <div className="flex flex-1 items-center justify-center p-8 text-zinc-600 dark:text-zinc-500">
         読み込み中…
       </div>
     );
@@ -267,7 +283,9 @@ export function RoomView({ roomCode }: Props) {
   if (status === "missing") {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-        <p className="text-lg text-zinc-200">このルームはないか、もう消えてる。</p>
+        <p className="text-lg text-zinc-800 dark:text-zinc-200">
+          このルームはないか、もう消えてる。
+        </p>
         <Link
           href="/"
           className="rounded-lg bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-900 hover:bg-white"
@@ -281,10 +299,12 @@ export function RoomView({ roomCode }: Props) {
   if (status === "error" || !room) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-        <p className="text-zinc-400">接続に失敗した。Firebase の設定を確認して。</p>
+        <p className="text-zinc-600 dark:text-zinc-400">
+          接続に失敗した。Firebase の設定を確認して。
+        </p>
         <Link
           href="/"
-          className="rounded-lg border border-zinc-700 px-4 py-2 text-sm text-zinc-200 hover:bg-zinc-900"
+          className="rounded-lg border border-zinc-300 px-4 py-2 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
         >
           トップへ
         </Link>
@@ -296,15 +316,17 @@ export function RoomView({ roomCode }: Props) {
     return (
       <div className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-6 p-6">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-50">ルーム {roomCode}</h1>
-          <p className="mt-1 text-sm text-zinc-500">
+          <h1 className="text-xl font-semibold text-zinc-900 dark:text-zinc-50">
+            ルーム {roomCode}
+          </h1>
+          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-500">
             表示名だけ入れれば参加できる
           </p>
         </div>
         <div className="flex flex-col gap-2">
-          <label className="text-sm text-zinc-400">名前</label>
+          <label className="text-sm text-zinc-600 dark:text-zinc-400">名前</label>
           <input
-            className="rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-zinc-100 outline-none focus:border-sky-500"
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 outline-none focus:border-sky-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100"
             value={joinName}
             onChange={(e) => setJoinName(e.target.value)}
             placeholder="例: フリーレン"
@@ -315,7 +337,7 @@ export function RoomView({ roomCode }: Props) {
           />
         </div>
         {errorMsg ? (
-          <p className="text-sm text-rose-400">{errorMsg}</p>
+          <p className="text-sm text-rose-700 dark:text-rose-400">{errorMsg}</p>
         ) : null}
         <button
           type="button"
@@ -324,7 +346,10 @@ export function RoomView({ roomCode }: Props) {
         >
           参加する
         </button>
-        <Link href="/" className="text-center text-sm text-zinc-500 hover:text-zinc-300">
+        <Link
+          href="/"
+          className="text-center text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-500 dark:hover:text-zinc-300"
+        >
           戻る
         </Link>
       </div>
@@ -333,11 +358,13 @@ export function RoomView({ roomCode }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 p-6">
-      <header className="flex flex-col gap-3 border-b border-zinc-800 pb-6 sm:flex-row sm:items-start sm:justify-between">
+      <header className="flex flex-col gap-3 border-b border-zinc-200 pb-6 dark:border-zinc-800 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-zinc-500">Room</p>
-          <h1 className="font-mono text-2xl font-semibold text-zinc-50">{roomCode}</h1>
-          <p className="mt-1 text-xs text-zinc-600">
+          <h1 className="font-mono text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+            {roomCode}
+          </h1>
+          <p className="mt-1 text-xs text-zinc-600 dark:text-zinc-500">
             作成: {new Date(room.createdAt).toLocaleString()}
           </p>
         </div>
@@ -345,20 +372,20 @@ export function RoomView({ roomCode }: Props) {
           <button
             type="button"
             onClick={copyLink}
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-200 hover:bg-zinc-900"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-900"
           >
             リンクをコピー
           </button>
           <button
             type="button"
             onClick={() => void leaveRoom()}
-            className="rounded-lg border border-rose-900/60 bg-rose-950/30 px-3 py-1.5 text-sm text-rose-300 hover:bg-rose-950/50"
+            className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-sm text-rose-800 hover:bg-rose-100 dark:border-rose-900/60 dark:bg-rose-950/30 dark:text-rose-300 dark:hover:bg-rose-950/50"
           >
             ルームを抜ける
           </button>
           <Link
             href="/"
-            className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
+            className="rounded-lg border border-zinc-300 px-3 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-900 dark:hover:text-zinc-200"
           >
             トップ
           </Link>
@@ -366,15 +393,17 @@ export function RoomView({ roomCode }: Props) {
       </header>
 
       {errorMsg ? (
-        <p className="rounded-lg border border-rose-900/60 bg-rose-950/40 px-3 py-2 text-sm text-rose-300">
+        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
           {errorMsg}
         </p>
       ) : null}
 
       <section className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-zinc-400">議題</label>
+        <label className="text-sm font-medium text-zinc-600 dark:text-zinc-400">
+          議題
+        </label>
         <textarea
-          className="min-h-[88px] w-full resize-y rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-base leading-relaxed text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-sky-500"
+          className="min-h-[88px] w-full resize-y rounded-xl border border-zinc-300 bg-white px-4 py-3 text-base leading-relaxed text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-sky-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500"
           value={topicDraft}
           onChange={(e) => onTopicChange(e.target.value)}
           placeholder="いま話してる議題を書く（別の話題にしたときはここを書き換える）"
@@ -383,7 +412,7 @@ export function RoomView({ roomCode }: Props) {
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium text-zinc-400">参加者</h2>
+        <h2 className="text-sm font-medium text-zinc-600 dark:text-zinc-400">参加者</h2>
         <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {Object.entries(members)
             .sort(([, a], [, b]) => a.name.localeCompare(b.name))
@@ -398,7 +427,7 @@ export function RoomView({ roomCode }: Props) {
               return (
                 <li
                   key={id}
-                  className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+                  className="flex flex-col rounded-xl border border-zinc-200 bg-zinc-100/80 p-4 dark:border-zinc-800 dark:bg-zinc-950/60"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex min-w-0 items-center gap-2">
@@ -406,16 +435,20 @@ export function RoomView({ roomCode }: Props) {
                         className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
                         aria-hidden
                       />
-                      <span className="font-medium text-zinc-100">{m.name}</span>
+                      <span className="font-medium text-zinc-900 dark:text-zinc-100">
+                        {m.name}
+                      </span>
                       {mine ? (
-                        <span className="text-xs text-sky-400">（自分）</span>
+                        <span className="text-xs text-sky-700 dark:text-sky-400">
+                          （自分）
+                        </span>
                       ) : null}
                     </div>
                     {!mine ? (
                       <button
                         type="button"
                         onClick={() => void kickMember(id)}
-                        className="shrink-0 rounded border border-zinc-600 px-2 py-0.5 text-xs text-zinc-400 hover:border-rose-800 hover:text-rose-400"
+                        className="shrink-0 rounded border border-zinc-400 px-2 py-0.5 text-xs text-zinc-600 hover:border-rose-400 hover:text-rose-700 dark:border-zinc-600 dark:text-zinc-400 dark:hover:border-rose-800 dark:hover:text-rose-400"
                       >
                         キック
                       </button>
@@ -423,8 +456,10 @@ export function RoomView({ roomCode }: Props) {
                   </div>
                   <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-4">
                     <p
-                      className={`font-mono text-5xl font-semibold tabular-nums text-zinc-50 sm:text-6xl ${
-                        displayNum === null ? "text-zinc-600" : ""
+                      className={`font-mono text-5xl font-semibold tabular-nums sm:text-6xl ${
+                        displayNum === null
+                          ? "text-zinc-400 dark:text-zinc-600"
+                          : "text-zinc-900 dark:text-zinc-50"
                       }`}
                     >
                       {displayNum !== null ? displayNum : "—"}
@@ -445,7 +480,7 @@ export function RoomView({ roomCode }: Props) {
                         <div className="flex items-center gap-2">
                           <label
                             htmlFor={`vote-num-${memberId}`}
-                            className="text-xs text-zinc-500"
+                            className="text-xs text-zinc-600 dark:text-zinc-500"
                           >
                             数値
                           </label>
@@ -464,12 +499,14 @@ export function RoomView({ roomCode }: Props) {
                               if (Number.isNaN(n)) return;
                               writeVote(Math.min(100, Math.max(0, n)));
                             }}
-                            className="w-20 rounded-lg border border-zinc-600 bg-zinc-900 px-2 py-1.5 text-center font-mono text-sm text-zinc-100 tabular-nums outline-none focus:border-sky-500"
+                            className="w-20 rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-center font-mono text-sm text-zinc-900 tabular-nums outline-none focus:border-sky-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
                           />
                         </div>
                       </div>
                     ) : hasVote ? null : (
-                      <p className="text-xs text-zinc-600">まだ票がない</p>
+                      <p className="text-xs text-zinc-500 dark:text-zinc-600">
+                        まだ票がない
+                      </p>
                     )}
                   </div>
                 </li>
