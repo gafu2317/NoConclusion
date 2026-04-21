@@ -43,61 +43,76 @@ export default function Home() {
     router.push(`/r/${code}`);
   }
 
+  const fieldClass =
+    "min-w-0 flex-1 rounded-xl border border-zinc-200/90 bg-white/90 px-3.5 py-2.5 font-mono text-sm text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20 motion-safe:duration-200 dark:border-zinc-700/90 dark:bg-zinc-900/80 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-sky-500";
+
+  const panelClass =
+    "rounded-2xl border border-zinc-200/80 bg-white/75 p-6 shadow-sm ring-1 ring-black/3 backdrop-blur-md motion-safe:transition-[box-shadow,border-color] motion-safe:duration-200 motion-safe:ease-out dark:border-zinc-800/80 dark:bg-zinc-900/50 dark:ring-white/4";
+
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-1 flex-col justify-center gap-10 px-6 py-16">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50">
+    <main className="nc-view-enter mx-auto flex w-full max-w-md flex-1 flex-col justify-center gap-12 px-5 py-14 sm:px-6">
+      <header className="space-y-3 text-center sm:text-left">
+        <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-500">
+          Vote sync
+        </p>
+        <h1 className="text-balance text-3xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-4xl">
           NoConclusion
         </h1>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-zinc-400">
-          通話しながら議題ごとの賛否を 0〜100 で揃えて見るだけの部屋。ログインはない。
+        <p className="text-pretty text-[15px] leading-relaxed text-zinc-600 dark:text-zinc-400">
+          通話しながら議題ごとの賛否を 0〜100 で揃えて見る。ログインはない。
         </p>
-      </div>
+      </header>
 
-      <div className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-500">
-          新しいルーム
-        </h2>
-        <button
-          type="button"
-          onClick={() => void createRoom()}
-          disabled={creating}
-          className="rounded-lg bg-sky-600 px-4 py-3 text-sm font-medium text-white hover:bg-sky-500 disabled:opacity-60"
-        >
-          {creating ? "作成中…" : "ルームを作る"}
-        </button>
-      </div>
-
-      <div className="flex flex-col gap-3">
-        <h2 className="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-500">
-          コードで参加
-        </h2>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            className="min-w-0 flex-1 rounded-lg border border-zinc-300 bg-white px-3 py-2 font-mono text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-sky-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-100 dark:placeholder:text-zinc-500"
-            value={joinInput}
-            onChange={(e) => setJoinInput(e.target.value)}
-            placeholder="8 文字のコード"
-            maxLength={16}
-            onKeyDown={(e) => {
-              if (isEnterToSubmit(e)) joinRoom();
-            }}
-          />
+      <div className="flex flex-col gap-5">
+        <section className={panelClass}>
+          <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            新しいルーム
+          </h2>
           <button
             type="button"
-            onClick={joinRoom}
-            className="rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-100 dark:border-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-900"
+            onClick={() => void createRoom()}
+            disabled={creating}
+            className="w-full rounded-xl bg-sky-600 px-4 py-3 text-sm font-medium text-white shadow-sm transition hover:bg-sky-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-600 motion-safe:duration-200 active:scale-[0.99] disabled:pointer-events-none disabled:opacity-50 dark:bg-sky-500 dark:hover:bg-sky-400 dark:focus-visible:outline-sky-400 motion-reduce:active:scale-100"
           >
-            参加
+            {creating ? "作成中…" : "ルームを作る"}
           </button>
-        </div>
+        </section>
+
+        <section className={panelClass}>
+          <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+            コードで参加
+          </h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
+            <input
+              className={fieldClass}
+              value={joinInput}
+              onChange={(e) => setJoinInput(e.target.value)}
+              placeholder="8 文字のコード"
+              maxLength={16}
+              onKeyDown={(e) => {
+                if (isEnterToSubmit(e)) joinRoom();
+              }}
+            />
+            <button
+              type="button"
+              onClick={joinRoom}
+              className="shrink-0 rounded-xl border border-zinc-200 bg-zinc-50/90 px-5 py-2.5 text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400 motion-safe:duration-200 active:scale-[0.99] dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800 motion-reduce:active:scale-100"
+            >
+              参加
+            </button>
+          </div>
+        </section>
       </div>
 
       {error ? (
-        <p className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800 dark:border-rose-900/60 dark:bg-rose-950/40 dark:text-rose-300">
+        <p
+          role="alert"
+          aria-live="assertive"
+          className="rounded-xl border border-rose-200/80 bg-rose-50/95 px-4 py-3 text-sm text-rose-900 shadow-sm motion-safe:transition-opacity motion-safe:duration-200 dark:border-rose-900/50 dark:bg-rose-950/50 dark:text-rose-200"
+        >
           {error}
         </p>
       ) : null}
-    </div>
+    </main>
   );
 }

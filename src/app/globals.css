@@ -5,6 +5,100 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* ベース: 淡いグラデーション＋読みやすいレイヤー感 */
 body {
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background-color: rgb(125 211 252 / 0.45);
+}
+
+.dark ::selection {
+  background-color: rgb(56 189 248 / 0.35);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+@keyframes nc-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.375rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.nc-view-enter {
+  animation: nc-fade-up 0.4s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nc-view-enter {
+    animation: none;
+  }
+}
+
+/* レンジスライダー: トラックをやわらかく */
+input[type="range"] {
+  height: 0.375rem;
+  border-radius: 9999px;
+  appearance: none;
+}
+
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: rgb(228 228 231);
+}
+
+.dark input[type="range"]::-webkit-slider-runnable-track {
+  background: rgb(63 63 70);
+}
+
+input[type="range"]::-moz-range-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: rgb(228 228 231);
+}
+
+.dark input[type="range"]::-moz-range-track {
+  background: rgb(63 63 70);
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: calc(-0.375rem + 0.09375rem);
+  border-radius: 9999px;
+  background: rgb(2 132 199);
+  border: 2px solid rgb(255 255 255);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+.dark input[type="range"]::-webkit-slider-thumb {
+  border-color: rgb(24 24 27);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 9999px;
+  background: rgb(2 132 199);
+  border: 2px solid rgb(255 255 255);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.12);
+}
+
+.dark input[type="range"]::-moz-range-thumb {
+  border-color: rgb(24 24 27);
 }
