@@ -1,0 +1,36 @@
+# Cursor: AI / @参照 / インデックスから外す（.gitignore と同じ記法）
+# https://cursor.com/docs/context/ignore-files
+
+# ---- secrets & local config ----
+.env
+.env.*
+!.env.example
+**/credentials.json
+**/secrets.json
+**/*-firebase-adminsdk-*.json
+**/serviceAccount*.json
+*.pem
+
+# ---- dependencies & build output ----
+node_modules/
+.pnp
+.pnp.*
+.next/
+out/
+build/
+dist/
+coverage/
+.turbo/
+.vercel/
+
+# ---- logs & caches ----
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+*.tsbuildinfo
+.eslintcache
+
+# ---- misc ----
+.DS_Store

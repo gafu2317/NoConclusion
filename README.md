@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NoConclusion
 
-## Getting Started
+Discord 通話向けに、議題ごとの賛否（0〜100）を Firebase Realtime Database でリアルタイム同期する [Next.js](https://nextjs.org) アプリ。ホスティング想定は Vercel。
 
-First, run the development server:
+## 必要なもの
+
+- Node.js 20+
+- Firebase プロジェクト（Realtime Database 有効）
+- ルーム作成・掃除 API 用のサービスアカウント JSON（サーバー環境変数）
+
+## セットアップ
+
+1. Firebase Console で Realtime Database を作成し、ルート URL を控える。
+2. プロジェクト設定から Web アプリ用の設定をコピーする。
+3. サービスアカウント JSON を取得し、**1 行の JSON 文字列**として `FIREBASE_SERVICE_ACCOUNT` に渡す（改行は `\n` でエスケープされた `private_key` をそのまま貼る）。
+4. ルートに `.env.local` を作り、[`.env.example`](.env.example) を参考に埋める。
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+ブラウザで [http://localhost:3000](http://localhost:3000) を開く。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Realtime Database のルール
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+[`database.rules.json`](database.rules.json) を Firebase Console の「ルール」に貼り付けて公開する。`createdAt` はクライアントからは書き込めず、サーバー（Admin SDK）のみがルーム作成時に設定する想定。
 
-## Learn More
+## Vercel へのデプロイ
 
-To learn more about Next.js, take a look at the following resources:
+1. リポジトリを Vercel にインポートする。
+2. Environment Variables に `.env.example` の項目をすべて設定する。
+3. `CRON_SECRET` は十分に長いランダム文字列にする。Vercel の Cron が `/api/cron/cleanup` を叩くとき、`Authorization: Bearer <CRON_SECRET>` で検証する。
+4. [`vercel.json`](vercel.json) の Cron（毎日 03:00 UTC）が、作成から 7 日を過ぎたルームを削除する。
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**注意:** ルーム作成 API は `FIREBASE_SERVICE_ACCOUNT` が無いと 503 を返す。本番では必ず設定すること。
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## スクリプト
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| コマンド     | 説明           |
+| ------------ | -------------- |
+| `npm run dev`    | 開発サーバー   |
+| `npm run build`  | 本番ビルド     |
+| `npm run start`  | 本番サーバー   |
+| `npm run lint`   | ESLint         |
