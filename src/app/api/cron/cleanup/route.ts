@@ -43,17 +43,32 @@ export async function GET(request: Request) {
     }
 
     const cutoff = Date.now() - ROOM_TTL_MS;
-    let deleted = 0;
+    let deletedExpired = 0;
+    let deletedEmpty = 0;
 
     for (const [code, data] of Object.entries(rooms)) {
-      const createdAt = data?.createdAt;
+      if (!data || typeof data !== "object") continue;
+
+      const members = (data as { members?: Record<string, unknown> }).members;
+      const memberCount =
+        members && typeof members === "object"
+          ? Object.keys(members).length
+          : 0;
+
+      if (memberCount === 0) {
+        await db.ref(`rooms/${code}`).remove();
+        deletedEmpty += 1;
+        continue;
+      }
+
+      const createdAt = (data as { createdAt?: number }).createdAt;
       if (typeof createdAt === "number" && createdAt < cutoff) {
         await db.ref(`rooms/${code}`).remove();
-        deleted += 1;
+        deletedExpired += 1;
       }
     }
 
-    return Response.json({ deleted });
+    return Response.json({ deletedExpired, deletedEmpty });
   } catch (e) {
     console.error(e);
     return Response.json(

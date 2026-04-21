@@ -2,11 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { get, onValue, ref, set } from "firebase/database";
+import { useRouter } from "next/navigation";
+import {
+  get,
+  onDisconnect,
+  onValue,
+  ref,
+  remove,
+  set,
+} from "firebase/database";
+import type { OnDisconnect } from "firebase/database";
 import { getClientDatabase } from "@/lib/firebase/client";
 import { MEMBER_COLOR_CLASSES } from "@/lib/constants";
 import { isEnterToSubmit } from "@/lib/keyboard";
-import { getOrCreateMemberId, pickColorIdx } from "@/lib/member";
+import { clearMemberId, getOrCreateMemberId, pickColorIdx } from "@/lib/member";
 import type { RoomState } from "@/lib/types";
 
 type Props = {
@@ -74,7 +83,16 @@ function tryGetDb() {
   }
 }
 
+function postVacuum(roomCode: string) {
+  void fetch("/api/room/vacuum", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomCode }),
+  });
+}
+
 export function RoomView({ roomCode }: Props) {
+  const router = useRouter();
   const db = useMemo(() => tryGetDb(), []);
   const memberId = useMemo(() => getOrCreateMemberId(roomCode), [roomCode]);
 
@@ -86,6 +104,10 @@ export function RoomView({ roomCode }: Props) {
 
   const voteDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const topicDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onDisconnectHandlesRef = useRef<{
+    member: OnDisconnect;
+    vote: OnDisconnect;
+  } | null>(null);
 
   useEffect(() => {
     if (!db) return;
@@ -113,6 +135,22 @@ export function RoomView({ roomCode }: Props) {
   const isMember = Boolean(room?.members?.[memberId]);
   const members = room?.members ?? {};
   const voteMap = useMemo(() => room?.votes ?? {}, [room]);
+
+  useEffect(() => {
+    if (!db || !isMember) return;
+    const mRef = ref(db, `rooms/${roomCode}/members/${memberId}`);
+    const vRef = ref(db, `rooms/${roomCode}/votes/${memberId}`);
+    const odM = onDisconnect(mRef);
+    const odV = onDisconnect(vRef);
+    void odM.remove();
+    void odV.remove();
+    onDisconnectHandlesRef.current = { member: odM, vote: odV };
+    return () => {
+      void odM.cancel().catch(() => {});
+      void odV.cancel().catch(() => {});
+      onDisconnectHandlesRef.current = null;
+    };
+  }, [db, isMember, roomCode, memberId]);
 
   const joinRoom = useCallback(async () => {
     if (!db) return;
@@ -178,6 +216,45 @@ export function RoomView({ roomCode }: Props) {
     const url = `${window.location.origin}/r/${roomCode}`;
     void navigator.clipboard.writeText(url);
   }, [roomCode]);
+
+  const leaveRoom = useCallback(async () => {
+    if (!db) return;
+    setErrorMsg(null);
+    const od = onDisconnectHandlesRef.current;
+    if (od) {
+      try {
+        await od.member.cancel();
+        await od.vote.cancel();
+      } catch {
+        /* ignore */
+      }
+    }
+    try {
+      await remove(ref(db, `rooms/${roomCode}/members/${memberId}`));
+      await remove(ref(db, `rooms/${roomCode}/votes/${memberId}`));
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "退室に失敗した");
+      return;
+    }
+    clearMemberId(roomCode);
+    postVacuum(roomCode);
+    router.push("/");
+  }, [db, memberId, roomCode, router]);
+
+  const kickMember = useCallback(
+    async (targetId: string) => {
+      if (!db || targetId === memberId) return;
+      setErrorMsg(null);
+      try {
+        await remove(ref(db, `rooms/${roomCode}/votes/${targetId}`));
+        await remove(ref(db, `rooms/${roomCode}/members/${targetId}`));
+        postVacuum(roomCode);
+      } catch (e) {
+        setErrorMsg(e instanceof Error ? e.message : "キックに失敗した");
+      }
+    },
+    [db, memberId, roomCode],
+  );
 
   if (status === "loading") {
     return (
@@ -272,6 +349,13 @@ export function RoomView({ roomCode }: Props) {
           >
             リンクをコピー
           </button>
+          <button
+            type="button"
+            onClick={() => void leaveRoom()}
+            className="rounded-lg border border-rose-900/60 bg-rose-950/30 px-3 py-1.5 text-sm text-rose-300 hover:bg-rose-950/50"
+          >
+            ルームを抜ける
+          </button>
           <Link
             href="/"
             className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200"
@@ -316,14 +400,25 @@ export function RoomView({ roomCode }: Props) {
                   key={id}
                   className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
                 >
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
-                      aria-hidden
-                    />
-                    <span className="font-medium text-zinc-100">{m.name}</span>
-                    {mine ? (
-                      <span className="text-xs text-sky-400">（自分）</span>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
+                        aria-hidden
+                      />
+                      <span className="font-medium text-zinc-100">{m.name}</span>
+                      {mine ? (
+                        <span className="text-xs text-sky-400">（自分）</span>
+                      ) : null}
+                    </div>
+                    {!mine ? (
+                      <button
+                        type="button"
+                        onClick={() => void kickMember(id)}
+                        className="shrink-0 rounded border border-zinc-600 px-2 py-0.5 text-xs text-zinc-400 hover:border-rose-800 hover:text-rose-400"
+                      >
+                        キック
+                      </button>
                     ) : null}
                   </div>
                   <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-4">

@@ -13,7 +13,7 @@
         "members": {
           "$memberId": {
             ".write": "$roomCode.matches(/^[a-z0-9]{8}$/)",
-            ".validate": "newData.hasChildren(['name', 'colorIdx']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 32 && newData.child('colorIdx').isNumber() && newData.child('colorIdx').val() >= 0 && newData.child('colorIdx').val() <= 15"
+            ".validate": "!newData.exists() || (newData.hasChildren(['name', 'colorIdx']) && newData.child('name').isString() && newData.child('name').val().length > 0 && newData.child('name').val().length <= 32 && newData.child('colorIdx').isNumber() && newData.child('colorIdx').val() >= 0 && newData.child('colorIdx').val() <= 15)"
           }
         },
         "votes": {

@@ -12,6 +12,11 @@ export function getOrCreateMemberId(roomCode: string): string {
   return id;
 }
 
+export function clearMemberId(roomCode: string): void {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(`${STORAGE_PREFIX}${roomCode}`);
+}
+
 export function pickColorIdx(memberId: string, memberCount: number): number {
   let h = 0;
   for (let i = 0; i < memberId.length; i++) {
