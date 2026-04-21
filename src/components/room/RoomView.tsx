@@ -1,29 +1,13 @@
 "use client";
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  get,
-  onValue,
-  ref,
-  remove,
-  set,
-  update,
-} from "firebase/database";
+import { get, onValue, ref, set } from "firebase/database";
 import { getClientDatabase } from "@/lib/firebase/client";
-import { aggregateVotes } from "@/lib/aggregate";
-import {
-  MEMBER_COLOR_CLASSES,
-  VOTE_BUCKETS,
-} from "@/lib/constants";
+import { MEMBER_COLOR_CLASSES } from "@/lib/constants";
+import { isEnterToSubmit } from "@/lib/keyboard";
 import { getOrCreateMemberId, pickColorIdx } from "@/lib/member";
-import type { RoomState, TopicRecord } from "@/lib/types";
+import type { RoomState } from "@/lib/types";
 
 type Props = {
   roomCode: string;
@@ -31,17 +15,54 @@ type Props = {
 
 type LoadStatus = "loading" | "ready" | "missing" | "error";
 
+function isNestedVotes(votes: Record<string, unknown>): boolean {
+  const keys = Object.keys(votes);
+  if (keys.length === 0) return false;
+  const first = votes[keys[0]!];
+  return typeof first === "object" && first !== null && !Array.isArray(first);
+}
+
+/** 旧形式（topics / votes[topicId]）を読み取り可能にする */
 function normalizeRoom(raw: unknown): RoomState {
-  const r = raw as Partial<RoomState>;
+  const r = raw as Record<string, unknown>;
+  const createdAt = typeof r.createdAt === "number" ? r.createdAt : 0;
+  const members =
+    r.members && typeof r.members === "object"
+      ? (r.members as RoomState["members"])
+      : {};
+
+  let topicTitle = "";
+  if (typeof r.topicTitle === "string") {
+    topicTitle = r.topicTitle;
+  } else if (r.topics && typeof r.topics === "object" && r.activeTopicId) {
+    const topics = r.topics as Record<string, { title?: string }>;
+    const tid = r.activeTopicId as string;
+    topicTitle = topics[tid]?.title ?? "";
+  }
+
+  const votesFlat: Record<string, number> = {};
+  if (r.votes && typeof r.votes === "object") {
+    const v = r.votes as Record<string, unknown>;
+    if (isNestedVotes(v)) {
+      const tid = (r.activeTopicId as string) || Object.keys(v)[0];
+      const inner = tid ? (v[tid] as Record<string, unknown> | undefined) : undefined;
+      if (inner && typeof inner === "object") {
+        for (const [mid, val] of Object.entries(inner)) {
+          if (typeof val === "number") votesFlat[mid] = val;
+        }
+      }
+    } else {
+      for (const [mid, val] of Object.entries(v)) {
+        if (typeof val === "number") votesFlat[mid] = val;
+      }
+    }
+  }
+
   return {
-    createdAt: typeof r.createdAt === "number" ? r.createdAt : 0,
-    activeTopicId:
-      r.activeTopicId === null || typeof r.activeTopicId === "string"
-        ? r.activeTopicId ?? null
-        : null,
-    topics: r.topics && typeof r.topics === "object" ? r.topics : {},
-    members: r.members && typeof r.members === "object" ? r.members : {},
-    votes: r.votes && typeof r.votes === "object" ? r.votes : {},
+    createdAt,
+    topicTitle,
+    members,
+    votes: votesFlat,
   };
 }
 
@@ -64,6 +85,7 @@ export function RoomView({ roomCode }: Props) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const voteDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const topicDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!db) return;
@@ -76,7 +98,9 @@ export function RoomView({ roomCode }: Props) {
           setRoom(null);
           return;
         }
-        setRoom(normalizeRoom(snap.val()));
+        const next = normalizeRoom(snap.val());
+        setRoom(next);
+        setTopicDraft(next.topicTitle);
         setStatus("ready");
       },
       () => {
@@ -88,26 +112,7 @@ export function RoomView({ roomCode }: Props) {
 
   const isMember = Boolean(room?.members?.[memberId]);
   const members = room?.members ?? {};
-  const topics = useMemo(() => room?.topics ?? {}, [room]);
-  const activeTopicId = room?.activeTopicId ?? null;
-
-  const sortedTopics = useMemo(() => {
-    return Object.entries(topics)
-      .map(([id, t]) => ({ id, ...t }))
-      .sort((a, b) => a.order - b.order);
-  }, [topics]);
-
-  const voteMap = useMemo(() => {
-    if (!activeTopicId || !room?.votes?.[activeTopicId]) return {};
-    return room.votes[activeTopicId]!;
-  }, [room, activeTopicId]);
-
-  const { average, counts } = useMemo(() => {
-    const vals = Object.values(voteMap).filter(
-      (n): n is number => typeof n === "number",
-    );
-    return aggregateVotes(vals);
-  }, [voteMap]);
+  const voteMap = useMemo(() => room?.votes ?? {}, [room]);
 
   const joinRoom = useCallback(async () => {
     if (!db) return;
@@ -128,86 +133,44 @@ export function RoomView({ roomCode }: Props) {
     }
   }, [db, joinName, memberId, roomCode]);
 
-  const addTopic = useCallback(async () => {
-    if (!db) return;
-    const title = topicDraft.trim();
-    if (!title) return;
-    setErrorMsg(null);
-    const id = crypto.randomUUID();
-    const order =
-      sortedTopics.length === 0
-        ? 0
-        : Math.max(...sortedTopics.map((t) => t.order)) + 1;
-    const topic: TopicRecord = { title, order };
-    const updates: Record<string, unknown> = {
-      [`topics/${id}`]: topic,
-    };
-    if (!activeTopicId) {
-      updates.activeTopicId = id;
-    }
-    try {
-      await update(ref(db, `rooms/${roomCode}`), updates);
-      setTopicDraft("");
-    } catch (e) {
-      setErrorMsg(e instanceof Error ? e.message : "議題の追加に失敗した");
-    }
-  }, [activeTopicId, db, roomCode, sortedTopics, topicDraft]);
-
-  const setActiveTopic = useCallback(
-    async (id: string) => {
+  const commitTopicTitle = useCallback(
+    (title: string) => {
       if (!db) return;
-      setErrorMsg(null);
-      try {
-        await set(ref(db, `rooms/${roomCode}/activeTopicId`), id);
-      } catch (e) {
-        setErrorMsg(e instanceof Error ? e.message : "切り替えに失敗した");
-      }
+      set(ref(db, `rooms/${roomCode}/topicTitle`), title).catch((e) =>
+        setErrorMsg(e instanceof Error ? e.message : "議題の保存に失敗した"),
+      );
     },
     [db, roomCode],
   );
 
-  const deleteTopic = useCallback(
-    async (id: string) => {
-      if (!db) return;
-      setErrorMsg(null);
-      try {
-        const nextTopics = { ...topics };
-        delete nextTopics[id];
-        const remaining = Object.entries(nextTopics)
-          .map(([tid, t]) => ({ id: tid, ...t }))
-          .sort((a, b) => a.order - b.order);
-
-        let nextActive = activeTopicId;
-        if (activeTopicId === id) {
-          nextActive = remaining[0]?.id ?? null;
-        }
-
-        await remove(ref(db, `rooms/${roomCode}/topics/${id}`));
-        await remove(ref(db, `rooms/${roomCode}/votes/${id}`));
-        await set(ref(db, `rooms/${roomCode}/activeTopicId`), nextActive);
-      } catch (e) {
-        setErrorMsg(e instanceof Error ? e.message : "削除に失敗した");
-      }
+  const onTopicChange = useCallback(
+    (value: string) => {
+      setTopicDraft(value);
+      if (topicDebounceRef.current) clearTimeout(topicDebounceRef.current);
+      topicDebounceRef.current = setTimeout(() => {
+        commitTopicTitle(value);
+      }, 400);
     },
-    [activeTopicId, db, roomCode, topics],
+    [commitTopicTitle],
   );
 
   const writeVote = useCallback(
     (value: number) => {
-      if (!db || !activeTopicId) return;
+      if (!db) return;
       if (voteDebounceRef.current) clearTimeout(voteDebounceRef.current);
       voteDebounceRef.current = setTimeout(() => {
-        set(ref(db, `rooms/${roomCode}/votes/${activeTopicId}/${memberId}`), value).catch(
+        set(ref(db, `rooms/${roomCode}/votes/${memberId}`), value).catch(
           (e) => setErrorMsg(e instanceof Error ? e.message : "投票の保存に失敗した"),
         );
       }, 80);
     },
-    [activeTopicId, db, memberId, roomCode],
+    [db, memberId, roomCode],
   );
 
   useEffect(() => {
     return () => {
       if (voteDebounceRef.current) clearTimeout(voteDebounceRef.current);
+      if (topicDebounceRef.current) clearTimeout(topicDebounceRef.current);
     };
   }, []);
 
@@ -269,7 +232,9 @@ export function RoomView({ roomCode }: Props) {
             onChange={(e) => setJoinName(e.target.value)}
             placeholder="例: フリーレン"
             maxLength={32}
-            onKeyDown={(e) => e.key === "Enter" && void joinRoom()}
+            onKeyDown={(e) => {
+              if (isEnterToSubmit(e)) void joinRoom();
+            }}
           />
         </div>
         {errorMsg ? (
@@ -322,152 +287,73 @@ export function RoomView({ roomCode }: Props) {
         </p>
       ) : null}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium text-zinc-400">議題</h2>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <input
-            className="min-w-0 flex-1 rounded-lg border border-zinc-700 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-sky-500"
-            value={topicDraft}
-            onChange={(e) => setTopicDraft(e.target.value)}
-            placeholder="新しい議題"
-            maxLength={200}
-            onKeyDown={(e) => e.key === "Enter" && void addTopic()}
-          />
-          <button
-            type="button"
-            onClick={() => void addTopic()}
-            className="rounded-lg bg-zinc-800 px-4 py-2 text-sm font-medium text-zinc-100 hover:bg-zinc-700"
-          >
-            追加
-          </button>
-        </div>
-        {sortedTopics.length === 0 ? (
-          <p className="text-sm text-zinc-500">議題がまだない</p>
-        ) : (
-          <ul className="flex flex-col gap-2">
-            {sortedTopics.map((t) => {
-              const active = t.id === activeTopicId;
-              return (
-                <li
-                  key={t.id}
-                  className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${
-                    active
-                      ? "border-sky-600/80 bg-sky-950/40"
-                      : "border-zinc-800 bg-zinc-950/50"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 text-left text-zinc-100 hover:text-white"
-                    onClick={() => void setActiveTopic(t.id)}
-                  >
-                    {t.title}
-                    {active ? (
-                      <span className="ml-2 text-xs text-sky-400">（表示中）</span>
-                    ) : null}
-                  </button>
-                  <button
-                    type="button"
-                    className="shrink-0 text-xs text-rose-400 hover:text-rose-300"
-                    onClick={() => void deleteTopic(t.id)}
-                  >
-                    削除
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-950/40 p-4">
-        <h2 className="text-sm font-medium text-zinc-400">集計（表示中の議題）</h2>
-        {!activeTopicId ? (
-          <p className="text-sm text-zinc-500">議題を選ぶか追加して</p>
-        ) : (
-          <>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="rounded-lg bg-zinc-900/80 p-3">
-                <p className="text-xs text-zinc-500">平均</p>
-                <p className="text-2xl font-semibold text-zinc-50">
-                  {average !== null ? average : "—"}
-                </p>
-              </div>
-              <div className="rounded-lg bg-zinc-900/80 p-3">
-                <p className="text-xs text-zinc-500">
-                  反対（0〜{VOTE_BUCKETS.opposeMax}）
-                </p>
-                <p className="text-2xl font-semibold text-rose-300">{counts.oppose}</p>
-              </div>
-              <div className="rounded-lg bg-zinc-900/80 p-3">
-                <p className="text-xs text-zinc-500">
-                  中立（{VOTE_BUCKETS.neutralMin}〜{VOTE_BUCKETS.neutralMax}）
-                </p>
-                <p className="text-2xl font-semibold text-amber-200">{counts.neutral}</p>
-              </div>
-            </div>
-            <div className="rounded-lg bg-zinc-900/80 p-3">
-              <p className="text-xs text-zinc-500">
-                賛成（{VOTE_BUCKETS.favorMin}〜100）
-              </p>
-              <p className="text-2xl font-semibold text-emerald-300">{counts.favor}</p>
-            </div>
-          </>
-        )}
+      <section className="flex flex-col gap-2">
+        <label className="text-sm font-medium text-zinc-400">議題</label>
+        <textarea
+          className="min-h-[88px] w-full resize-y rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-base leading-relaxed text-zinc-100 outline-none placeholder:text-zinc-600 focus:border-sky-500"
+          value={topicDraft}
+          onChange={(e) => onTopicChange(e.target.value)}
+          placeholder="いま話してる議題を書く（別の話題にしたときはここを書き換える）"
+          maxLength={500}
+        />
       </section>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-sm font-medium text-zinc-400">賛否（0〜100）</h2>
-        {!activeTopicId ? (
-          <p className="text-sm text-zinc-500">議題を選んでからスライダーを動かして</p>
-        ) : (
-          <ul className="flex flex-col gap-4">
-            {Object.entries(members)
-              .sort(([, a], [, b]) => a.name.localeCompare(b.name))
-              .map(([id, m]) => {
-                const v = voteMap[id];
-                const hasVote = typeof v === "number";
-                const mine = id === memberId;
-                const sliderValue = typeof v === "number" ? v : 50;
-                const dotClass =
-                  MEMBER_COLOR_CLASSES[m.colorIdx % MEMBER_COLOR_CLASSES.length]!;
-                return (
-                  <li key={id} className="flex flex-col gap-2 rounded-lg border border-zinc-800 p-3">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
-                        aria-hidden
-                      />
-                      <span className="font-medium text-zinc-100">{m.name}</span>
-                      {mine ? (
-                        <span className="text-xs text-sky-400">（自分）</span>
-                      ) : null}
-                      <span className="ml-auto font-mono text-sm text-zinc-400">
-                        {hasVote || mine ? sliderValue : "—"}
-                      </span>
-                    </div>
-                    {mine || hasVote ? (
+        <h2 className="text-sm font-medium text-zinc-400">参加者</h2>
+        <ul className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {Object.entries(members)
+            .sort(([, a], [, b]) => a.name.localeCompare(b.name))
+            .map(([id, m]) => {
+              const v = voteMap[id];
+              const hasVote = typeof v === "number";
+              const mine = id === memberId;
+              const displayNum = typeof v === "number" ? v : mine ? 50 : null;
+              const sliderValue = typeof v === "number" ? v : 50;
+              const dotClass =
+                MEMBER_COLOR_CLASSES[m.colorIdx % MEMBER_COLOR_CLASSES.length]!;
+              return (
+                <li
+                  key={id}
+                  className="flex flex-col rounded-xl border border-zinc-800 bg-zinc-950/60 p-4"
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`h-2.5 w-2.5 shrink-0 rounded-full ${dotClass}`}
+                      aria-hidden
+                    />
+                    <span className="font-medium text-zinc-100">{m.name}</span>
+                    {mine ? (
+                      <span className="text-xs text-sky-400">（自分）</span>
+                    ) : null}
+                  </div>
+                  <div className="mt-4 flex flex-1 flex-col items-center justify-center gap-4">
+                    <p
+                      className={`font-mono text-5xl font-semibold tabular-nums text-zinc-50 sm:text-6xl ${
+                        displayNum === null ? "text-zinc-600" : ""
+                      }`}
+                    >
+                      {displayNum !== null ? displayNum : "—"}
+                    </p>
+                    {mine ? (
                       <input
                         type="range"
                         min={0}
                         max={100}
                         value={sliderValue}
-                        disabled={!mine}
                         onChange={(e) => {
                           const n = Number(e.target.value);
-                          if (!mine) return;
                           writeVote(n);
                         }}
-                        className="w-full accent-sky-500 disabled:opacity-70"
+                        className="w-full max-w-xs accent-sky-500"
                       />
-                    ) : (
+                    ) : hasVote ? null : (
                       <p className="text-xs text-zinc-600">まだ票がない</p>
                     )}
-                  </li>
-                );
-              })}
-          </ul>
-        )}
+                  </div>
+                </li>
+              );
+            })}
+        </ul>
       </section>
     </div>
   );

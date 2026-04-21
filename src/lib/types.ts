@@ -1,17 +1,12 @@
-export type TopicRecord = {
-  title: string;
-  order: number;
-};
-
 export type MemberRecord = {
   name: string;
   colorIdx: number;
 };
 
+/** RTDB のルーム（議題は1件の文字列、票は memberId → 0〜100） */
 export type RoomState = {
   createdAt: number;
-  activeTopicId: string | null;
-  topics: Record<string, TopicRecord>;
+  topicTitle: string;
   members: Record<string, MemberRecord>;
-  votes: Record<string, Record<string, number>>;
+  votes: Record<string, number>;
 };

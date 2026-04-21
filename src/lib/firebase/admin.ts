@@ -7,8 +7,6 @@ import {
 } from "firebase-admin/app";
 import { getDatabase } from "firebase-admin/database";
 
-let adminApp: App | null = null;
-
 type ServiceAccountJson = {
   project_id: string;
   client_email: string;
@@ -54,16 +52,17 @@ function parseServiceAccountJson(): ServiceAccountJson {
 }
 
 export function getAdminApp(): App {
-  if (adminApp) return adminApp;
+  const existing = getApps()[0];
+  if (existing) return existing;
 
   const databaseURL = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL;
   if (!databaseURL) {
     throw new Error("NEXT_PUBLIC_FIREBASE_DATABASE_URL is required");
   }
 
-  if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64 || process.env.FIREBASE_SERVICE_ACCOUNT) {
+  if (hasFirebaseAdminCredentials()) {
     const cred = parseServiceAccountJson();
-    adminApp = initializeApp({
+    return initializeApp({
       credential: cert({
         projectId: cred.project_id,
         clientEmail: cred.client_email,
@@ -71,18 +70,12 @@ export function getAdminApp(): App {
       }),
       databaseURL,
     });
-    return adminApp;
   }
 
-  if (getApps().length === 0) {
-    adminApp = initializeApp({
-      credential: applicationDefault(),
-      databaseURL,
-    });
-  } else {
-    adminApp = getApps()[0]!;
-  }
-  return adminApp!;
+  return initializeApp({
+    credential: applicationDefault(),
+    databaseURL,
+  });
 }
 
 export function getAdminDatabase() {

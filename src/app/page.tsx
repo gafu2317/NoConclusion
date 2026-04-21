@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { isEnterToSubmit } from "@/lib/keyboard";
 import { isValidRoomCode, normalizeRoomCode } from "@/lib/roomCode";
 
 export default function Home() {
@@ -78,7 +79,9 @@ export default function Home() {
             onChange={(e) => setJoinInput(e.target.value)}
             placeholder="8 文字のコード"
             maxLength={16}
-            onKeyDown={(e) => e.key === "Enter" && joinRoom()}
+            onKeyDown={(e) => {
+              if (isEnterToSubmit(e)) joinRoom();
+            }}
           />
           <button
             type="button"

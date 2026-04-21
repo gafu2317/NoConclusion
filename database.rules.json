@@ -6,15 +6,9 @@
         "createdAt": {
           ".write": false
         },
-        "activeTopicId": {
+        "topicTitle": {
           ".write": "$roomCode.matches(/^[a-z0-9]{8}$/)",
-          ".validate": "newData.val() === null || (newData.isString() && newData.val().length > 0 && newData.val().length <= 128)"
-        },
-        "topics": {
-          "$topicId": {
-            ".write": "$roomCode.matches(/^[a-z0-9]{8}$/)",
-            ".validate": "!newData.exists() || (newData.hasChildren(['title', 'order']) && newData.child('title').isString() && newData.child('title').val().length > 0 && newData.child('title').val().length <= 200 && newData.child('order').isNumber())"
-          }
+          ".validate": "newData.isString() && newData.val().length <= 500"
         },
         "members": {
           "$memberId": {
@@ -23,13 +17,9 @@
           }
         },
         "votes": {
-          "$topicId": {
+          "$memberId": {
             ".write": "$roomCode.matches(/^[a-z0-9]{8}$/)",
-            ".validate": "!newData.exists() || newData.hasChildren()",
-            "$memberId": {
-              ".write": "$roomCode.matches(/^[a-z0-9]{8}$/)",
-              ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100)"
-            }
+            ".validate": "!newData.exists() || (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100)"
           }
         }
       }

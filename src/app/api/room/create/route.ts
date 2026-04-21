@@ -39,8 +39,7 @@ export async function POST() {
 
     await db.ref(`rooms/${roomCode}`).set({
       createdAt: Date.now(),
-      activeTopicId: null,
-      topics: {},
+      topicTitle: "",
       members: {},
       votes: {},
     });
