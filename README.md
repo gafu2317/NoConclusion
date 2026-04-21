@@ -12,7 +12,7 @@ Discord 通話向けに、議題ごとの賛否（0〜100）を Firebase Realtim
 
 1. Firebase Console で Realtime Database を作成し、ルート URL を控える。
 2. プロジェクト設定から Web アプリ用の設定をコピーする。
-3. サービスアカウント JSON を取得し、**1 行の JSON 文字列**として `FIREBASE_SERVICE_ACCOUNT` に渡す（改行は `\n` でエスケープされた `private_key` をそのまま貼る）。
+3. サービスアカウント JSON を取得し、`FIREBASE_SERVICE_ACCOUNT` に **1 行の JSON** で渡す（`private_key` の改行は必ず `\n` にする。貼り付けで実改行が入ると JSON が壊れる）。または JSON ファイル全体を base64 して `FIREBASE_SERVICE_ACCOUNT_BASE64` に入れる（`base64 -i service-account.json | tr -d '\n'` など）。
 4. ルートに `.env.local` を作り、[`.env.example`](.env.example) を参考に埋める。
 
 ```bash
@@ -33,7 +33,7 @@ npm run dev
 3. `CRON_SECRET` は十分に長いランダム文字列にする。Vercel の Cron が `/api/cron/cleanup` を叩くとき、`Authorization: Bearer <CRON_SECRET>` で検証する。
 4. [`vercel.json`](vercel.json) の Cron（毎日 03:00 UTC）が、作成から 7 日を過ぎたルームを削除する。
 
-**注意:** ルーム作成 API は `FIREBASE_SERVICE_ACCOUNT` が無いと 503 を返す。本番では必ず設定すること。
+**注意:** ルーム作成 API は `FIREBASE_SERVICE_ACCOUNT` / `FIREBASE_SERVICE_ACCOUNT_BASE64` が無いと 503 を返す。本番では必ず設定すること。
 
 ## スクリプト
 

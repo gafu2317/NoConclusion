@@ -1,4 +1,7 @@
-import { getAdminDatabase } from "@/lib/firebase/admin";
+import {
+  getAdminDatabase,
+  hasFirebaseAdminCredentials,
+} from "@/lib/firebase/admin";
 import { ROOM_TTL_MS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -18,9 +21,12 @@ export async function GET(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+  if (!hasFirebaseAdminCredentials()) {
     return Response.json(
-      { error: "FIREBASE_SERVICE_ACCOUNT not configured" },
+      {
+        error:
+          "FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVICE_ACCOUNT_BASE64 not configured",
+      },
       { status: 503 },
     );
   }

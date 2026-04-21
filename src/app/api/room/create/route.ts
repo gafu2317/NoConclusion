@@ -1,5 +1,8 @@
 import { randomBytes } from "crypto";
-import { getAdminDatabase } from "@/lib/firebase/admin";
+import {
+  getAdminDatabase,
+  hasFirebaseAdminCredentials,
+} from "@/lib/firebase/admin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,9 +18,12 @@ function genRoomCode(): string {
 }
 
 export async function POST() {
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+  if (!hasFirebaseAdminCredentials()) {
     return Response.json(
-      { error: "Server is not configured (FIREBASE_SERVICE_ACCOUNT)" },
+      {
+        error:
+          "Server is not configured (FIREBASE_SERVICE_ACCOUNT or FIREBASE_SERVICE_ACCOUNT_BASE64)",
+      },
       { status: 503 },
     );
   }
