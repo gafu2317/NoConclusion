@@ -400,40 +400,40 @@ export function RoomView({ roomCode }: Props) {
   }
 
   return (
-    <main className="nc-view-enter mx-auto flex w-full max-w-3xl flex-1 flex-col gap-8 px-5 py-8 sm:px-6 sm:py-10">
+    <main className="nc-view-enter mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-5 py-5 sm:gap-6 sm:px-6 sm:py-7">
       <header
-        className={`rounded-2xl border border-zinc-200/80 bg-white/70 p-5 dark:border-zinc-800/80 dark:bg-zinc-900/45 sm:flex sm:items-start sm:justify-between sm:gap-6 sm:p-6 ${PANEL_BLUR}`}
+        className={`rounded-xl border border-zinc-200/80 bg-white/70 px-3 py-2.5 dark:border-zinc-800/80 dark:bg-zinc-900/45 sm:flex sm:items-center sm:justify-between sm:gap-4 sm:px-4 sm:py-3 ${PANEL_BLUR}`}
       >
         <div className="min-w-0">
-          <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-zinc-500 dark:text-zinc-500">
+          <p className="text-[10px] font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-500">
             Room
           </p>
-          <h1 className="mt-1 break-all font-mono text-2xl font-semibold tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-[1.65rem]">
+          <h1 className="mt-0.5 break-all font-mono text-lg font-semibold leading-snug tracking-tight text-zinc-900 dark:text-zinc-50 sm:text-xl">
             {roomCode}
           </h1>
-          <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-500">
+          <p className="mt-0.5 text-[10px] leading-tight text-zinc-500 dark:text-zinc-500">
             作成 {new Date(room.createdAt).toLocaleString()}
           </p>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2 sm:mt-0 sm:justify-end">
+        <div className="mt-2 flex flex-wrap gap-1.5 sm:mt-0 sm:justify-end">
           <button
             type="button"
             onClick={copyLink}
             aria-label="ルームの URL をクリップボードにコピー"
-            className="min-w-42 rounded-xl border border-zinc-200 bg-zinc-50/90 px-3.5 py-2 text-center text-sm font-medium text-zinc-800 shadow-sm transition hover:bg-white motion-safe:duration-200 active:scale-[0.99] dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-200 dark:hover:bg-zinc-800 motion-reduce:active:scale-100"
+            className="min-w-36 rounded-lg border border-zinc-200 bg-zinc-50/90 px-2.5 py-1.5 text-center text-xs font-medium text-zinc-800 shadow-sm transition hover:bg-white motion-safe:duration-200 active:scale-[0.99] dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-200 dark:hover:bg-zinc-800 motion-reduce:active:scale-100"
           >
             {copyAck ? "コピーした" : "リンクをコピー"}
           </button>
           <button
             type="button"
             onClick={() => void leaveRoom()}
-            className="rounded-xl border border-rose-200/90 bg-rose-50/95 px-3.5 py-2 text-sm font-medium text-rose-900 shadow-sm transition hover:bg-rose-100/90 motion-safe:duration-200 active:scale-[0.99] dark:border-rose-900/45 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/60 motion-reduce:active:scale-100"
+            className="rounded-lg border border-rose-200/90 bg-rose-50/95 px-2.5 py-1.5 text-xs font-medium text-rose-900 shadow-sm transition hover:bg-rose-100/90 motion-safe:duration-200 active:scale-[0.99] dark:border-rose-900/45 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-950/60 motion-reduce:active:scale-100"
           >
             ルームを抜ける
           </button>
           <Link
             href="/"
-            className="rounded-xl border border-zinc-200/80 px-3.5 py-2 text-sm font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 motion-safe:duration-200 active:scale-[0.99] dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 motion-reduce:active:scale-100"
+            className="rounded-lg border border-zinc-200/80 px-2.5 py-1.5 text-xs font-medium text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 motion-safe:duration-200 active:scale-[0.99] dark:border-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-200 motion-reduce:active:scale-100"
           >
             トップ
           </Link>
@@ -451,17 +451,17 @@ export function RoomView({ roomCode }: Props) {
       ) : null}
 
       <section
-        className={`rounded-2xl border border-zinc-200/80 bg-white/70 p-4 dark:border-zinc-800/80 dark:bg-zinc-900/45 sm:p-5 ${PANEL_BLUR}`}
+        className={`rounded-xl border border-zinc-200/80 bg-white/70 px-3 py-2.5 dark:border-zinc-800/80 dark:bg-zinc-900/45 sm:px-4 sm:py-3 ${PANEL_BLUR}`}
       >
         <label
           htmlFor="room-topic"
-          className="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
+          className="text-[10px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400"
         >
           議題
         </label>
         <textarea
           id="room-topic"
-          className="mt-2 min-h-17 w-full resize-y rounded-lg border border-zinc-200/90 bg-white/90 px-3 py-2 text-sm leading-snug text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20 dark:border-zinc-700/90 dark:bg-zinc-900/80 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-sky-500"
+          className="mt-1.5 min-h-12 w-full resize-y rounded-md border border-zinc-200/90 bg-white/90 px-2.5 py-1.5 text-sm leading-snug text-zinc-900 shadow-sm outline-none transition placeholder:text-zinc-400 focus:border-sky-400 focus:ring-2 focus:ring-sky-500/20 dark:border-zinc-700/90 dark:bg-zinc-900/80 dark:text-zinc-100 dark:placeholder:text-zinc-500 dark:focus:border-sky-500"
           value={topicDraft}
           onChange={(e) => onTopicChange(e.target.value)}
           placeholder="いま話してる議題を書く（別の話題にしたときはここを書き換える）"
